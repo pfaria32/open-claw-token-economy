@@ -1,0 +1,773 @@
+# DIY Fork Implementation Guide
+
+**Purpose:** Step-by-step guide for Sonnet to implement token economy hooks in a forked OpenClaw  
+**Estimated Time:** 2-4 hours  
+**Analyst:** Opus (2026-02-12)
+
+---
+
+## Overview
+
+This guide implements three optimizations in a forked OpenClaw:
+
+1. **`before_model_select` hook** - Dynamic model routing (route simple tasks to cheaper models)
+2. **`before_context_build` hook** - Context size limiting (prevent token bloat)
+3. **Heartbeat optimization** - Skip LLM call when HEARTBEAT.md is empty (biggest savings)
+
+**Expected impact:** 60-80% token reduction
+
+---
+
+## Prerequisites
+
+Before starting, ensure:
+
+1. GitHub SSH access is working (`ssh -T git@github.com`)
+2. Docker is available for building
+3. Working directory is available for the fork
+
+---
+
+## Phase 1: Fork and Clone OpenClaw
+
+### Step 1.1: Fork Repository
+
+```bash
+# Using gh CLI (already installed)
+export GH_TOKEN=$GITHUB_PAT
+/tmp/gh_2.42.1_linux_amd64/bin/gh repo fork openclaw/openclaw --clone=false
+```
+
+**Or manually:**
+1. Go to https://github.com/openclaw/openclaw
+2. Click "Fork" → Create fork under pfaria32
+3. Result: https://github.com/pfaria32/openclaw
+
+### Step 1.2: Clone Fork Locally
+
+```bash
+cd /home/node/.openclaw/workspace/projects
+git clone git@github.com:pfaria32/openclaw.git openclaw-fork
+cd openclaw-fork
+```
+
+### Step 1.3: Set Up Upstream Remote
+
+```bash
+git remote add upstream https://github.com/openclaw/openclaw.git
+git fetch upstream
+```
+
+---
+
+## Phase 2: Implement Type Definitions
+
+### File: `src/plugins/types.ts`
+
+**Location:** Add after line ~300 (after existing `PluginHookName` definition)
+
+#### Step 2.1: Add to PluginHookName union type
+
+Find:
+```typescript
+export type PluginHookName =
+  | "before_agent_start"
+  | "agent_end"
+  // ... existing hooks
+```
+
+Add to the union:
+```typescript
+  | "before_model_select"
+  | "before_context_build"
+```
+
+#### Step 2.2: Add new type definitions
+
+Add after the `PluginHookAgentEndEvent` type definition (around line 340):
+
+```typescript
+// ============================================
+// before_model_select hook
+// ============================================
+
+export type PluginHookModelContext = {
+  agentId?: string;
+  sessionKey?: string;
+  workspaceDir?: string;
+  messageProvider?: string;
+  config?: OpenClawConfig;
+};
+
+export type PluginHookBeforeModelSelectEvent = {
+  prompt: string;
+  requestedModel: {
+    provider: string;
+    model: string;
+  };
+  context?: {
+    trigger?: string;
+    messages?: unknown[];
+  };
+};
+
+export type PluginHookBeforeModelSelectResult = {
+  overrideModel?: {
+    provider: string;
+    model: string;
+  };
+  reason?: string;
+};
+
+// ============================================
+// before_context_build hook
+// ============================================
+
+export type PluginHookContextContext = {
+  agentId?: string;
+  sessionKey?: string;
+  workspaceDir?: string;
+  config?: OpenClawConfig;
+};
+
+export type PluginHookBeforeContextBuildEvent = {
+  requestedFiles: Array<{
+    path: string;
+    type: 'bootstrap' | 'context' | 'memory';
+  }>;
+  estimatedTokens?: number;
+};
+
+export type PluginHookBeforeContextBuildResult = {
+  filteredFiles?: Array<{
+    path: string;
+    maxTokens?: number;
+  }>;
+  reason?: string;
+};
+```
+
+#### Step 2.3: Add to PluginHookHandlerMap
+
+Find `PluginHookHandlerMap` (around line 475) and add:
+
+```typescript
+  before_model_select: (
+    event: PluginHookBeforeModelSelectEvent,
+    ctx: PluginHookModelContext,
+  ) => Promise<PluginHookBeforeModelSelectResult | void> | PluginHookBeforeModelSelectResult | void;
+  
+  before_context_build: (
+    event: PluginHookBeforeContextBuildEvent,
+    ctx: PluginHookContextContext,
+  ) => Promise<PluginHookBeforeContextBuildResult | void> | PluginHookBeforeContextBuildResult | void;
+```
+
+---
+
+## Phase 3: Implement Hook Runners
+
+### File: `src/plugins/hooks.ts`
+
+#### Step 3.1: Add imports
+
+At the top of the file, add to the import from `./types.js`:
+
+```typescript
+import type {
+  // ... existing imports
+  PluginHookBeforeModelSelectEvent,
+  PluginHookBeforeModelSelectResult,
+  PluginHookModelContext,
+  PluginHookBeforeContextBuildEvent,
+  PluginHookBeforeContextBuildResult,
+  PluginHookContextContext,
+} from "./types.js";
+```
+
+Also add to the re-exports:
+
+```typescript
+export type {
+  // ... existing exports
+  PluginHookBeforeModelSelectEvent,
+  PluginHookBeforeModelSelectResult,
+  PluginHookModelContext,
+  PluginHookBeforeContextBuildEvent,
+  PluginHookBeforeContextBuildResult,
+  PluginHookContextContext,
+};
+```
+
+#### Step 3.2: Add runBeforeModelSelect function
+
+Add this function inside `createHookRunner`, after the existing hook runner functions:
+
+```typescript
+  /**
+   * Run before_model_select hook.
+   * Allows plugins to override model selection based on task classification.
+   */
+  async function runBeforeModelSelect(
+    event: PluginHookBeforeModelSelectEvent,
+    ctx: PluginHookModelContext,
+  ): Promise<PluginHookBeforeModelSelectResult | undefined> {
+    return runModifyingHook<"before_model_select", PluginHookBeforeModelSelectResult>(
+      "before_model_select",
+      event,
+      ctx,
+      (acc, next) => ({
+        overrideModel: next.overrideModel ?? acc?.overrideModel,
+        reason: next.reason || acc?.reason,
+      }),
+    );
+  }
+```
+
+#### Step 3.3: Add runBeforeContextBuild function
+
+```typescript
+  /**
+   * Run before_context_build hook.
+   * Allows plugins to filter or limit context files.
+   */
+  async function runBeforeContextBuild(
+    event: PluginHookBeforeContextBuildEvent,
+    ctx: PluginHookContextContext,
+  ): Promise<PluginHookBeforeContextBuildResult | undefined> {
+    return runModifyingHook<"before_context_build", PluginHookBeforeContextBuildResult>(
+      "before_context_build",
+      event,
+      ctx,
+      (acc, next) => ({
+        filteredFiles: next.filteredFiles ?? acc?.filteredFiles,
+        reason: next.reason || acc?.reason,
+      }),
+    );
+  }
+```
+
+#### Step 3.4: Add to return object
+
+In the `createHookRunner` return object, add:
+
+```typescript
+  return {
+    // ... existing methods
+    runBeforeModelSelect,
+    runBeforeContextBuild,
+  };
+```
+
+#### Step 3.5: Update HookRunner type
+
+Find the `HookRunner` type export and add:
+
+```typescript
+export type HookRunner = {
+  // ... existing methods
+  runBeforeModelSelect: (
+    event: PluginHookBeforeModelSelectEvent,
+    ctx: PluginHookModelContext,
+  ) => Promise<PluginHookBeforeModelSelectResult | undefined>;
+  runBeforeContextBuild: (
+    event: PluginHookBeforeContextBuildEvent,
+    ctx: PluginHookContextContext,
+  ) => Promise<PluginHookBeforeContextBuildResult | undefined>;
+  hasHooks: (hookName: PluginHookName) => boolean;
+};
+```
+
+---
+
+## Phase 4: Integrate before_model_select Hook
+
+### File: `src/agents/pi-embedded-runner/run.ts`
+
+#### Step 4.1: Add import
+
+At the top of the file, add:
+
+```typescript
+import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
+```
+
+#### Step 4.2: Insert hook call
+
+Find these lines (around line 176-177):
+
+```typescript
+      const provider = (params.provider ?? DEFAULT_PROVIDER).trim() || DEFAULT_PROVIDER;
+      const modelId = (params.model ?? DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+```
+
+**AFTER** these lines and **BEFORE** the `resolveModel` call (line ~183), insert:
+
+```typescript
+      // === TOKEN ECONOMY: before_model_select hook ===
+      let finalProvider = provider;
+      let finalModelId = modelId;
+      
+      const hookRunner = getGlobalHookRunner();
+      if (hookRunner?.hasHooks("before_model_select")) {
+        try {
+          const hookResult = await hookRunner.runBeforeModelSelect(
+            {
+              prompt: params.prompt,
+              requestedModel: { provider, model: modelId },
+              context: {
+                trigger: params.trigger,
+                messages: params.messages,
+              },
+            },
+            {
+              agentId: params.agentId,
+              sessionKey: params.sessionKey,
+              workspaceDir: resolvedWorkspace,
+              messageProvider: params.messageProvider,
+              config: params.config,
+            },
+          );
+
+          if (hookResult?.overrideModel) {
+            finalProvider = hookResult.overrideModel.provider;
+            finalModelId = hookResult.overrideModel.model;
+            
+            if (hookResult.reason) {
+              log.info(
+                `[before_model_select] Model override: ${finalProvider}/${finalModelId} (${hookResult.reason})`,
+              );
+            }
+          }
+        } catch (hookErr) {
+          log.warn(`[before_model_select] Hook failed: ${String(hookErr)}`);
+          // Continue with original model on error (fail-open for hooks)
+        }
+      }
+      // === END TOKEN ECONOMY ===
+```
+
+#### Step 4.3: Update resolveModel call
+
+Change the `resolveModel` call to use `finalProvider` and `finalModelId`:
+
+```typescript
+      const { model, error, authStorage, modelRegistry } = resolveModel(
+        finalProvider,  // Changed from: provider
+        finalModelId,   // Changed from: modelId
+        params.config,
+      );
+```
+
+**Also update all subsequent references** to `provider` and `modelId` in the function to use `finalProvider` and `finalModelId`. Search and replace carefully within the function scope.
+
+---
+
+## Phase 5: Integrate before_context_build Hook
+
+### File: `src/agents/bootstrap-files.ts`
+
+#### Step 5.1: Add import
+
+```typescript
+import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
+```
+
+#### Step 5.2: Modify resolveBootstrapContextForRun
+
+Replace the function with:
+
+```typescript
+export async function resolveBootstrapContextForRun(params: {
+  workspaceDir: string;
+  config?: OpenClawConfig;
+  sessionKey?: string;
+  sessionId?: string;
+  agentId?: string;
+  warn?: (message: string) => void;
+}): Promise<{
+  bootstrapFiles: WorkspaceBootstrapFile[];
+  contextFiles: EmbeddedContextFile[];
+}> {
+  let bootstrapFiles = await resolveBootstrapFilesForRun(params);
+  
+  // === TOKEN ECONOMY: before_context_build hook ===
+  const hookRunner = getGlobalHookRunner();
+  if (hookRunner?.hasHooks("before_context_build")) {
+    try {
+      const hookResult = await hookRunner.runBeforeContextBuild(
+        {
+          requestedFiles: bootstrapFiles.map(f => ({
+            path: f.path,
+            type: 'bootstrap' as const,
+          })),
+        },
+        {
+          agentId: params.agentId,
+          sessionKey: params.sessionKey,
+          workspaceDir: params.workspaceDir,
+          config: params.config,
+        },
+      );
+
+      if (hookResult?.filteredFiles) {
+        const filteredPaths = new Set(hookResult.filteredFiles.map(f => f.path));
+        bootstrapFiles = bootstrapFiles.filter(f => filteredPaths.has(f.path));
+        
+        if (hookResult.reason) {
+          params.warn?.(`[before_context_build] Context filtered: ${hookResult.filteredFiles.length} files (${hookResult.reason})`);
+        }
+      }
+    } catch (hookErr) {
+      params.warn?.(`[before_context_build] Hook failed: ${String(hookErr)}`);
+      // Continue with original files on error
+    }
+  }
+  // === END TOKEN ECONOMY ===
+
+  const contextFiles = buildBootstrapContextFiles(bootstrapFiles, {
+    maxChars: resolveBootstrapMaxChars(params.config),
+    warn: params.warn,
+  });
+  return { bootstrapFiles, contextFiles };
+}
+```
+
+---
+
+## Phase 6: Implement Heartbeat Optimization
+
+This is the **highest impact** change - eliminates ~50% of token usage.
+
+### File: `src/cron/isolated-agent/run.ts`
+
+#### Step 6.1: Add imports
+
+At the top of the file, add:
+
+```typescript
+import { isHeartbeatContentEffectivelyEmpty } from "../../auto-reply/heartbeat.js";
+import * as fs from "node:fs";
+import * as path from "node:path";
+```
+
+#### Step 6.2: Find the runCronAgentTurn function
+
+Look for the function `runCronAgentTurn` (around line 110).
+
+#### Step 6.3: Add heartbeat check
+
+**BEFORE** the line that calls `runEmbeddedPiAgent` (around line 404), add this block:
+
+```typescript
+  // === TOKEN ECONOMY: Heartbeat optimization ===
+  // Skip LLM call entirely when HEARTBEAT.md is empty
+  const isHeartbeatJob = params.job.payload.kind === 'systemEvent' && 
+                         params.message?.toLowerCase().includes('heartbeat');
+  
+  if (isHeartbeatJob) {
+    const heartbeatPath = path.join(workspaceDir, 'HEARTBEAT.md');
+    
+    try {
+      if (fs.existsSync(heartbeatPath)) {
+        const content = await fs.promises.readFile(heartbeatPath, 'utf8');
+        
+        if (isHeartbeatContentEffectivelyEmpty(content)) {
+          // Skip LLM call - return immediately with zero tokens
+          await persistSessionEntry();
+          
+          return withRunSession({
+            status: "ok",
+            summary: "HEARTBEAT_OK",
+            externalTokens: 0,
+            payloads: [],
+          });
+        }
+      }
+    } catch (err) {
+      // If we can't read the file, continue with normal heartbeat processing
+      logWarn(`[cron:${params.job.id}] Failed to check HEARTBEAT.md: ${String(err)}`);
+    }
+  }
+  // === END TOKEN ECONOMY ===
+```
+
+**IMPORTANT:** Place this BEFORE the `runWithModelFallback` or `runEmbeddedPiAgent` call. The exact location depends on the current code structure. Look for where the actual LLM call happens and insert just before it.
+
+---
+
+## Phase 7: Build Custom Docker Image
+
+### Step 7.1: Create Dockerfile.custom
+
+In the root of the forked repository, create:
+
+```dockerfile
+# Dockerfile.custom - OpenClaw with Token Economy Hooks
+FROM node:22-bookworm-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY pnpm-lock.yaml ./
+
+# Install pnpm and dependencies
+RUN npm install -g pnpm
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN pnpm build
+
+# Create non-root user
+RUN useradd -m -s /bin/bash openclaw
+USER openclaw
+
+ENTRYPOINT ["node", "dist/cli.js"]
+CMD ["gateway"]
+```
+
+### Step 7.2: Build the image
+
+```bash
+cd /home/node/.openclaw/workspace/projects/openclaw-fork
+
+# Build with token-economy tag
+docker build -f Dockerfile.custom -t openclaw-token-economy:latest .
+```
+
+### Step 7.3: Update docker-compose.yml
+
+On the host machine, update the docker-compose.yml:
+
+```yaml
+services:
+  openclaw-gateway:
+    image: openclaw-token-economy:latest
+    # ... rest of config unchanged
+```
+
+### Step 7.4: Alternative - Build Script
+
+Create a build script at `scripts/build-token-economy.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+echo "Building OpenClaw with Token Economy hooks..."
+
+# Navigate to fork directory
+cd "$(dirname "$0")/.."
+
+# Pull latest from upstream (optional)
+# git fetch upstream
+# git merge upstream/main --no-edit
+
+# Build Docker image
+docker build -f Dockerfile.custom -t openclaw-token-economy:latest .
+
+echo "Build complete!"
+echo "Update your docker-compose.yml to use: openclaw-token-economy:latest"
+```
+
+---
+
+## Phase 8: Install Token Economy Plugin
+
+After deploying the custom OpenClaw build, install the plugin to use the hooks.
+
+### Step 8.1: Create plugin directory
+
+```bash
+mkdir -p ~/.openclaw/plugins/token-economy
+```
+
+### Step 8.2: Copy plugin files
+
+Copy from our existing implementation:
+
+```bash
+cp /home/node/.openclaw/workspace/projects/token-economy/plugins/model-routing-plugin.js \
+   ~/.openclaw/plugins/token-economy/
+
+cp /home/node/.openclaw/workspace/projects/token-economy/plugins/context-bundling-plugin.js \
+   ~/.openclaw/plugins/token-economy/
+```
+
+### Step 8.3: Create plugin index
+
+Create `~/.openclaw/plugins/token-economy/index.js`:
+
+```javascript
+// Token Economy Plugin - Model Routing + Context Bundling
+const modelRouting = require('./model-routing-plugin.js');
+const contextBundling = require('./context-bundling-plugin.js');
+
+module.exports = {
+  name: 'token-economy',
+  version: '1.0.0',
+  
+  async register(openclaw) {
+    // Register model routing hook
+    openclaw.on('before_model_select', modelRouting.handler);
+    
+    // Register context bundling hook
+    openclaw.on('before_context_build', contextBundling.handler);
+    
+    console.log('[token-economy] Plugin loaded - model routing + context bundling active');
+  }
+};
+```
+
+### Step 8.4: Enable plugin in config
+
+Add to your OpenClaw config (config.yaml or via gateway config.patch):
+
+```yaml
+plugins:
+  enabled:
+    - token-economy
+```
+
+---
+
+## Phase 9: Testing Checklist
+
+### Pre-deployment tests:
+
+```bash
+# 1. TypeScript compilation
+cd /home/node/.openclaw/workspace/projects/openclaw-fork
+pnpm build
+
+# 2. Run existing tests (should pass)
+pnpm test
+
+# 3. Test hook registration
+# Add a simple test in src/plugins/hooks.test.ts
+```
+
+### Post-deployment tests:
+
+1. **Heartbeat optimization test:**
+   - Clear HEARTBEAT.md (leave only comments)
+   - Wait for heartbeat trigger (30 min) or trigger manually
+   - Check logs: should see "HEARTBEAT_OK" with 0 external tokens
+   - Verify: No API call made
+
+2. **Model routing test:**
+   - Send a simple message: "What's 2+2?"
+   - Check logs: should route to GPT-4o (or configured cheap model)
+   - Send a complex message: "Analyze the architecture of..."
+   - Check logs: should use Sonnet/Opus
+
+3. **Context bundling test:**
+   - Add many files to workspace
+   - Trigger agent run
+   - Check logs: should see context filtering message
+   - Verify: Total context size within limits
+
+### Token usage verification:
+
+```bash
+# Check daily audit report
+node /home/node/.openclaw/workspace/projects/token-economy/scripts/daily-audit-report.js
+
+# Compare before/after:
+# - Before: ~$3-5/day
+# - After: ~$1-1.50/day
+```
+
+---
+
+## Phase 10: Maintenance
+
+### Staying updated with upstream
+
+```bash
+cd /home/node/.openclaw/workspace/projects/openclaw-fork
+
+# Fetch upstream changes
+git fetch upstream
+
+# Merge (may require conflict resolution)
+git merge upstream/main
+
+# Rebuild
+docker build -f Dockerfile.custom -t openclaw-token-economy:latest .
+
+# Restart
+docker compose restart openclaw-gateway
+```
+
+### When official hooks merge
+
+Once OpenClaw officially adds these hooks:
+
+1. Switch back to official OpenClaw image
+2. Keep the plugins (they'll work with official hooks)
+3. Delete the fork (optional)
+
+---
+
+## Summary
+
+### Files to modify:
+
+| File | Changes |
+|------|---------|
+| `src/plugins/types.ts` | Add hook types (~50 lines) |
+| `src/plugins/hooks.ts` | Add hook runners (~40 lines) |
+| `src/agents/pi-embedded-runner/run.ts` | Add model routing hook (~30 lines) |
+| `src/agents/bootstrap-files.ts` | Add context hook (~25 lines) |
+| `src/cron/isolated-agent/run.ts` | Add heartbeat check (~20 lines) |
+
+### Total changes: ~165 lines of TypeScript
+
+### Expected impact:
+
+- **Heartbeat optimization:** 100% reduction for idle periods (~50% of usage)
+- **Model routing:** 70% reduction on simple tasks
+- **Context bundling:** 40-60% context size reduction
+- **Overall:** 60-80% token cost reduction
+
+---
+
+## Quick Start Commands for Sonnet
+
+```bash
+# 1. Fork and clone
+export GH_TOKEN=$GITHUB_PAT
+cd /home/node/.openclaw/workspace/projects
+/tmp/gh_2.42.1_linux_amd64/bin/gh repo fork openclaw/openclaw --clone
+cd openclaw
+
+# 2. Make changes (follow phases 2-6 above)
+
+# 3. Build
+docker build -f Dockerfile.custom -t openclaw-token-economy:latest .
+
+# 4. Deploy (on host)
+# Update docker-compose.yml, then:
+# docker compose down
+# docker compose up -d
+
+# 5. Install plugins and test
+```
+
+---
+
+**Document created by:** Opus  
+**Date:** 2026-02-12  
+**For execution by:** Sonnet  
+**Estimated implementation time:** 2-4 hours
