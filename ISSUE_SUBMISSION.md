@@ -1,16 +1,14 @@
-# GitHub Issue Draft - OpenClaw Token Economy Hooks
+# Ready to Submit to OpenClaw
 
-**To be submitted to:** https://github.com/openclaw/openclaw/issues
+**Target:** https://github.com/openclaw/openclaw/issues/new
 
----
-
-## Title
-
-Feature: Add plugin hooks for token cost management
+**Title:** `Feature: Add plugin hooks for token cost management`
 
 ---
 
-## Issue Body
+## Issue Body (Copy everything below this line)
+
+---
 
 ### Problem
 
@@ -126,19 +124,4 @@ Looking forward to your thoughts!
 
 ---
 
-## Labels to Add
-
-- `enhancement`
-- `feature-request`
-- `plugins`
-- `cost-optimization`
-
----
-
-## Checklist Before Submitting
-
-- [ ] Create GitHub repository at https://github.com/pfaria32/open_claw_token_economy
-- [ ] Push PR_DESIGN.md, IMPLEMENTATION_GUIDE.md, and plugins/ to repo
-- [ ] Update links in issue body to point to your repo
-- [ ] Submit issue to https://github.com/openclaw/openclaw/issues
-- [ ] Monitor for responses (check daily for first week)
+**Suggested Labels:** `enhancement`, `feature-request`, `plugins`, `cost-optimization`
