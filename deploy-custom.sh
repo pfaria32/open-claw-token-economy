@@ -9,7 +9,7 @@ echo "===================================="
 echo ""
 
 # Configuration
-OPENCLAW_DIR="/home/pedro/openclaw"
+OPENCLAW_DIR="/home/user/openclaw"
 FORK_DIR="${HOME}/openclaw/workspace/projects/openclaw"
 WORKSPACE_DIR="${HOME}/openclaw/workspace"
 

@@ -110,7 +110,7 @@ No "requires gateway restart" messages found in logs.
 7. ✅ Runs as `node:node` (non-root)
 
 ### Source Code (Custom Hooks)
-**Location:** `/home/pedro/openclaw/workspace/projects/openclaw/`
+**Location:** `/home/user/openclaw/workspace/projects/openclaw/`
 
 **Modified Files:**
 1. `src/plugins/types.ts` (~50 lines)
@@ -248,7 +248,7 @@ docker images openclaw-custom --format "{{.ID}} {{.Tag}} {{.CreatedAt}}"
 
 # Rollback
 docker tag sha256:587cb823... openclaw-custom:token-economy
-cd /home/pedro/openclaw
+cd /home/user/openclaw
 docker compose down
 docker compose up -d
 ```

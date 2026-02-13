@@ -23,7 +23,7 @@ Deploy the custom OpenClaw from your **host machine** (not inside Docker).
 
 ```bash
 # 1. Navigate to project
-cd /home/pedro/openclaw/workspace/projects/token-economy
+cd /home/user/openclaw/workspace/projects/token-economy
 
 # 2. Run deployment script
 bash deploy-custom.sh
@@ -36,7 +36,7 @@ docker exec openclaw-custom node /app/dist/cli.js plugins install /home/node/.op
 docker exec openclaw-custom node /app/dist/cli.js config patch /home/node/.openclaw/workspace/plugin-config.json
 
 # 5. Watch logs to verify
-docker compose -f /home/pedro/openclaw/workspace/projects/openclaw/docker-compose.custom.yml logs -f
+docker compose -f /home/user/openclaw/workspace/projects/openclaw/docker-compose.custom.yml logs -f
 ```
 
 **Time:** ~15-20 minutes total
@@ -110,7 +110,7 @@ Ongoing:       $60-105/month savings
 
 **Run this:**
 ```bash
-cd /home/pedro/openclaw/workspace/projects/token-economy && bash deploy-custom.sh
+cd /home/user/openclaw/workspace/projects/token-economy && bash deploy-custom.sh
 ```
 
 **Expected outcome:** 60-80% token reduction, $60-105/month savings

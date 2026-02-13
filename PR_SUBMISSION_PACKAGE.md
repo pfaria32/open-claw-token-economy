@@ -238,7 +238,7 @@ token-economy/
 ## Contact
 
 **Project:** https://github.com/pfaria32/open_claw_token_economy  
-**Author:** Pedro Bento de Faria (@pfaria32)  
+**Author:** User (@pfaria32)  
 **OpenClaw:** https://github.com/openclaw/openclaw
 
 ---

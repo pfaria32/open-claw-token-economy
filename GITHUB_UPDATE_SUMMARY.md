@@ -273,7 +273,7 @@ Same as OpenClaw (MIT)
 
 **Deployed:** Feb 13, 2026  
 **Status:** Production stable  
-**Maintained by:** Pedro Bento de Faria (@pfaria32)
+**Maintained by:** User (@pfaria32)
 ```
 
 ---
@@ -283,7 +283,7 @@ Same as OpenClaw (MIT)
 ### For open_claw_token_economy repo:
 
 ```bash
-cd /home/pedro/.openclaw/workspace/projects/token-economy
+cd /home/user/.openclaw/workspace/projects/token-economy
 
 # Stage files
 git add DEPLOYMENT_SUCCESS.md
@@ -310,7 +310,7 @@ git push origin main
 ### For openclaw fork repo:
 
 ```bash
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 
 # Stage files
 git add CUSTOM_HOOKS.md

@@ -123,7 +123,7 @@ This repository contains:
 
 ## Contact
 
-- **Project Owner:** Pedro Bento de Faria
+- **Project Owner:** User
 - **GitHub:** [@pfaria32](https://github.com/pfaria32)
 - **Analyst:** Opus (completed 2026-02-12)
 - **Implementer:** Sonnet (starting TBD)

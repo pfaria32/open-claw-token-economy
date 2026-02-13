@@ -128,7 +128,7 @@ docker run --rm openclaw-custom:token-economy ls -la /app/dist/control-ui/
 docker compose stop openclaw-gateway
 
 # Patch config (now changes persist)
-nano /home/pedro/.openclaw-token/openclaw.json
+nano /home/user/.openclaw-token/openclaw.json
 # Add gateway.reload.mode = "hot"
 
 # Recreate with clean config
@@ -151,7 +151,7 @@ docker compose up -d --force-recreate openclaw-gateway
 tail -f /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log
 
 # Or from host (if mounted)
-tail -f /home/pedro/.openclaw-token/logs/openclaw-$(date +%Y-%m-%d).log
+tail -f /home/user/.openclaw-token/logs/openclaw-$(date +%Y-%m-%d).log
 ```
 
 **Health check from logs:**
@@ -295,7 +295,7 @@ Before deploying token-economy build:
 docker compose down
 
 # 2. Fix config (disable missing plugins)
-nano /home/pedro/.openclaw-token/openclaw.json
+nano /home/user/.openclaw-token/openclaw.json
 # Set plugins.slots.memory = "none"
 # Set gateway.reload.mode = "hot"
 

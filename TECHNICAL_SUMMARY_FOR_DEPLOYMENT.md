@@ -178,9 +178,9 @@ RUN npm install -g pnpm@10.23.0 && \
 ```
 
 ### Files Involved
-- **Dockerfile:** `/home/pedro/openclaw/workspace/projects/openclaw/Dockerfile.custom`
-- **Source code:** `/home/pedro/openclaw/workspace/projects/openclaw/src/`
-- **Plugins:** `/home/pedro/openclaw/workspace/plugins/`
+- **Dockerfile:** `/home/user/openclaw/workspace/projects/openclaw/Dockerfile.custom`
+- **Source code:** `/home/user/openclaw/workspace/projects/openclaw/src/`
+- **Plugins:** `/home/user/openclaw/workspace/plugins/`
 
 ---
 
@@ -202,7 +202,7 @@ RUN npm install -g pnpm@10.23.0 && \
 │                     │                           │
 │          ┌──────────▼──────────┐                │
 │          │ Shared Workspace    │                │
-│          │ /home/pedro/        │                │
+│          │ /home/user/        │                │
 │          │   openclaw/workspace│                │
 │          │ - SOUL.md           │                │
 │          │ - USER.md           │                │
@@ -216,9 +216,9 @@ RUN npm install -g pnpm@10.23.0 && \
 ### Volume Mounts (Both Containers)
 ```yaml
 volumes:
-  - /home/pedro/openclaw/workspace:/home/node/.openclaw/workspace:rw
-  - /home/pedro/openclaw/config:/home/node/.openclaw/config:rw
-  - /home/pedro/openclaw/data:/home/node/.openclaw/data:rw
+  - /home/user/openclaw/workspace:/home/node/.openclaw/workspace:rw
+  - /home/user/openclaw/config:/home/node/.openclaw/config:rw
+  - /home/user/openclaw/data:/home/node/.openclaw/data:rw
 ```
 
 **Important:** Both containers share the same workspace. Changes are visible to both.
@@ -230,12 +230,12 @@ volumes:
 ### Step 1: Copy Fixed Dockerfile (From Container to Host)
 ```bash
 docker cp openclaw-gateway:/home/node/.openclaw/workspace/projects/openclaw/Dockerfile.custom \
-  /home/pedro/openclaw/workspace/projects/openclaw/
+  /home/user/openclaw/workspace/projects/openclaw/
 ```
 
 ### Step 2: Build Docker Image
 ```bash
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 docker build -f Dockerfile.custom -t openclaw-custom:token-economy .
 ```
 
@@ -244,7 +244,7 @@ docker build -f Dockerfile.custom -t openclaw-custom:token-economy .
 
 ### Step 3: Deploy Custom OpenClaw
 ```bash
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 docker compose -f docker-compose.custom.yml up -d
 ```
 
@@ -292,7 +292,7 @@ If deployment fails or causes issues:
 
 ```bash
 # Stop custom OpenClaw
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 docker compose -f docker-compose.custom.yml down
 
 # Current OpenClaw on port 3333 remains unaffected
@@ -316,10 +316,10 @@ docker compose -f docker-compose.custom.yml down
 - **Official issue:** https://github.com/openclaw/openclaw/issues/14779
 
 ### Key Directories
-- **Fork source:** `/home/pedro/openclaw/workspace/projects/openclaw/`
-- **Plugins:** `/home/pedro/openclaw/workspace/plugins/`
-- **Deployment scripts:** `/home/pedro/openclaw/workspace/projects/token-economy/`
-- **Shared workspace:** `/home/pedro/openclaw/workspace/`
+- **Fork source:** `/home/user/openclaw/workspace/projects/openclaw/`
+- **Plugins:** `/home/user/openclaw/workspace/plugins/`
+- **Deployment scripts:** `/home/user/openclaw/workspace/projects/token-economy/`
+- **Shared workspace:** `/home/user/openclaw/workspace/`
 
 ---
 
@@ -352,7 +352,7 @@ docker compose -f docker-compose.custom.yml down
 
 ## Contact / Questions
 
-- All documentation in: `/home/pedro/openclaw/workspace/projects/token-economy/`
+- All documentation in: `/home/user/openclaw/workspace/projects/token-economy/`
 - Key files:
   - `DEPLOYMENT_GUIDE.md` - Comprehensive testing guide
   - `HOST_DEPLOYMENT_STEPS.md` - Step-by-step manual

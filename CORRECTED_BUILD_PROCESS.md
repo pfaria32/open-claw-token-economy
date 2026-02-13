@@ -63,7 +63,7 @@ docker run --rm --entrypoint sh openclaw-custom:token-economy-candidate -lc '
 ### Step 1: Rename Fixed Dockerfile
 
 ```bash
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 
 # Backup old (broken) Dockerfile
 mv Dockerfile.custom Dockerfile.custom.BROKEN
@@ -128,7 +128,7 @@ docker run --rm --entrypoint sh openclaw-custom:token-economy-candidate -lc \
 ```bash
 # Start gateway in test mode (doesn't replace prod)
 docker run --rm -it \
-  -v /home/pedro/.openclaw:/home/node/.openclaw \
+  -v /home/user/.openclaw:/home/node/.openclaw \
   -e OPENCLAW_GATEWAY_TOKEN=test123 \
   openclaw-custom:token-economy-candidate \
   node openclaw.mjs gateway --bind lan --port 3334
@@ -149,7 +149,7 @@ docker run --rm -it \
 docker tag openclaw-custom:token-economy-candidate openclaw-custom:token-economy
 
 # Restart all services with new image
-cd /home/pedro/openclaw
+cd /home/user/openclaw
 docker compose down
 docker compose up -d
 

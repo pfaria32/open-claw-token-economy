@@ -2,12 +2,12 @@
 
 **⚠️ Run these commands from your HOST machine (not inside Docker)**
 
-Location: `/home/pedro/openclaw/`
+Location: `/home/user/openclaw/`
 
 ## Quick Deploy (Automated)
 
 ```bash
-cd /home/pedro/openclaw/workspace/projects/token-economy
+cd /home/user/openclaw/workspace/projects/token-economy
 bash deploy-custom.sh
 ```
 
@@ -22,7 +22,7 @@ This script will:
 ### 1. Prepare Plugins
 
 ```bash
-cd /home/pedro/openclaw/workspace
+cd /home/user/openclaw/workspace
 mkdir -p plugins
 cp projects/token-economy/plugins/model-routing-plugin.js plugins/
 cp projects/token-economy/plugins/context-bundling-plugin.js plugins/
@@ -32,7 +32,7 @@ ls -la plugins/
 ### 2. Build Docker Image
 
 ```bash
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 docker build -f Dockerfile.custom -t openclaw-custom:token-economy .
 ```
 
@@ -44,7 +44,7 @@ docker build -f Dockerfile.custom -t openclaw-custom:token-economy .
 **Option A: Side-by-side (Recommended for testing)**
 
 ```bash
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 docker compose -f docker-compose.custom.yml up -d
 ```
 
@@ -54,11 +54,11 @@ This runs custom OpenClaw on port 3334 while keeping your existing OpenClaw on 3
 
 ```bash
 # Stop existing
-cd /home/pedro/openclaw
+cd /home/user/openclaw
 docker compose down
 
 # Start custom
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 docker compose -f docker-compose.custom.yml up -d
 ```
 
@@ -87,7 +87,7 @@ docker exec openclaw-custom node /app/dist/cli.js plugins list
 Create config patch:
 
 ```bash
-cat > /home/pedro/openclaw/workspace/plugin-config.json << 'EOF'
+cat > /home/user/openclaw/workspace/plugin-config.json << 'EOF'
 {
   "plugins": {
     "model-routing": {
@@ -125,10 +125,10 @@ docker exec openclaw-custom node /app/dist/cli.js config patch /home/node/.openc
 
 ```bash
 # Ensure HEARTBEAT.md is empty
-echo "" > /home/pedro/openclaw/workspace/HEARTBEAT.md
+echo "" > /home/user/openclaw/workspace/HEARTBEAT.md
 
 # Watch logs for heartbeat
-docker compose -f /home/pedro/openclaw/workspace/projects/openclaw/docker-compose.custom.yml logs -f | grep -i heartbeat
+docker compose -f /home/user/openclaw/workspace/projects/openclaw/docker-compose.custom.yml logs -f | grep -i heartbeat
 ```
 
 **Expected:** "Heartbeat: HEARTBEAT.md empty, skipping LLM call"
@@ -137,7 +137,7 @@ docker compose -f /home/pedro/openclaw/workspace/projects/openclaw/docker-compos
 
 ```bash
 # Watch logs for model selection
-docker compose -f /home/pedro/openclaw/workspace/projects/openclaw/docker-compose.custom.yml logs -f | grep -i model
+docker compose -f /home/user/openclaw/workspace/projects/openclaw/docker-compose.custom.yml logs -f | grep -i model
 ```
 
 Send test messages via Telegram and observe routing decisions.
@@ -146,10 +146,10 @@ Send test messages via Telegram and observe routing decisions.
 
 ```bash
 # Check audit logs (if token-auditor hook is enabled)
-tail -f /home/pedro/openclaw/workspace/projects/token-economy/logs/token-usage.jsonl
+tail -f /home/user/openclaw/workspace/projects/token-economy/logs/token-usage.jsonl
 
 # Run daily report
-cd /home/pedro/openclaw/workspace/projects/token-economy
+cd /home/user/openclaw/workspace/projects/token-economy
 node scripts/daily-audit-report.js
 ```
 
@@ -184,7 +184,7 @@ sudo netstat -tlnp | grep 3334
 
 ```bash
 # Check plugin syntax
-node -c /home/pedro/openclaw/workspace/plugins/model-routing-plugin.js
+node -c /home/user/openclaw/workspace/plugins/model-routing-plugin.js
 
 # Check plugin path inside container
 docker exec openclaw-custom ls -la /home/node/.openclaw/workspace/plugins/
@@ -199,11 +199,11 @@ If anything goes wrong:
 
 ```bash
 # Stop custom OpenClaw
-cd /home/pedro/openclaw/workspace/projects/openclaw
+cd /home/user/openclaw/workspace/projects/openclaw
 docker compose -f docker-compose.custom.yml down
 
 # Restart original (if stopped)
-cd /home/pedro/openclaw
+cd /home/user/openclaw
 docker compose up -d
 ```
 

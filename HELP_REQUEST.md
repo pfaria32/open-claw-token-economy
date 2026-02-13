@@ -84,9 +84,9 @@ RUN pnpm build
 
 ## Files Involved
 
-- **Dockerfile:** `/home/pedro/openclaw/workspace/projects/openclaw/Dockerfile.custom`
+- **Dockerfile:** `/home/user/openclaw/workspace/projects/openclaw/Dockerfile.custom`
 - **package.json:** Uses `node-llama-cpp@3.15.1` (not directly, likely transitive dependency)
-- **Build location:** `/home/pedro/openclaw/workspace/projects/openclaw/`
+- **Build location:** `/home/user/openclaw/workspace/projects/openclaw/`
 
 ---
 

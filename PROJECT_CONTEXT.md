@@ -95,7 +95,7 @@
 
 1. **Quick Deploy:**
    ```bash
-   cd /home/pedro/openclaw/workspace/projects/token-economy
+   cd /home/user/openclaw/workspace/projects/token-economy
    bash deploy-custom.sh
    ```
 
@@ -320,7 +320,7 @@
 
 **Option 1 (Automated):**
 ```bash
-cd /home/pedro/openclaw/workspace/projects/token-economy
+cd /home/user/openclaw/workspace/projects/token-economy
 bash deploy-custom.sh
 ```
 

@@ -43,7 +43,7 @@ ls -la plugins/
 **Warning:** This will stop your current OpenClaw instance. Only do this if you're ready to switch to the custom build.
 
 ```bash
-cd /home/pedro/openclaw
+cd /home/user/openclaw
 docker compose down
 ```
 
@@ -65,7 +65,7 @@ docker compose -f docker-compose.custom.yml logs -f
 
 ```bash
 # Stop existing
-cd /home/pedro/openclaw
+cd /home/user/openclaw
 docker compose down
 
 # Start custom
@@ -269,7 +269,7 @@ cd /home/node/.openclaw/workspace/projects/openclaw
 docker compose -f docker-compose.custom.yml down
 
 # Restart original OpenClaw
-cd /home/pedro/openclaw
+cd /home/user/openclaw
 docker compose up -d
 
 # Your data is safe (workspace, config, data dirs are mounted, not copied)
